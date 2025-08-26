@@ -1,7 +1,6 @@
 # SQL2API - Powerful SQL to REST API Server
 
 [![Build Status](https://github.com/zaops/sql2api/workflows/Build%20and%20Release%20SQL2API/badge.svg)](https://github.com/zaops/sql2api/actions)
-[![Go Report Card](https://goreportcard.com/badge/github.com/zaops/sql2api)](https://goreportcard.com/report/github.com/zaops/sql2api)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 SQL2API is a high-performance API server that converts SQL operations into RESTful endpoints, supporting native SQL queries, structured queries, and batch operations with PostgreSQL and Oracle databases.
@@ -370,8 +369,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 - **Issues**: [GitHub Issues](https://github.com/zaops/sql2api/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/zaops/sql2api/discussions)
-- **Documentation**: [Wiki](https://github.com/zaops/sql2api/wiki)
+- **Email**: [zhangzhiao@proton.me](mailto:zhangzhiao@proton.me)
 
 ---
 
