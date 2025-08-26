@@ -5,7 +5,7 @@
 # 服务器配置
 server:
   host: "0.0.0.0"           # 监听地址
-  port: 8081                # 监听端口
+  port: 8080                # 监听端口
   mode: "debug"             # 运行模式: debug, release, test
   read_timeout: 30          # 读取超时时间（秒）
   write_timeout: 30         # 写入超时时间（秒）
@@ -24,12 +24,6 @@ database:
   max_open_conns: 25       # 最大打开连接数
   max_idle_conns: 10       # 最大空闲连接数
   max_lifetime: 60         # 连接最大生存时间（分钟）
-
-# JWT 配置
-jwt:
-  secret: "your-very-long-secret-key-change-in-production-environment-at-least-32-chars"
-  expiration: 24           # Token 过期时间（小时）
-  issuer: "sql2api"        # 签发者
 
 # 安全配置
 security:
@@ -52,6 +46,60 @@ log:
   format: "json"           # 日志格式: json, text
   output: "stdout"         # 输出方式: stdout, file
   file: "sql2api.log"      # 日志文件路径（当 output 为 file 时）
+
+# Swagger 文档配置
+swagger:
+  title: "SQL2API Server"                    # API 标题
+  version: "1.0.0"                          # API 版本
+  description: "SQL2API 是一个现代化的 RESTful API 服务，支持统一的 CRUD 操作、JWT 认证、IP 白名单等功能"
+  host: "localhost:8081"                    # API 主机地址
+  base_path: "/api/v1"                      # API 基础路径
+  schemes:                                  # 支持的协议
+    - "http"
+    - "https"
+
+# API Key 认证配置
+api_keys:
+  enabled: true                             # 是否启用 API Key 认证
+  header_name: "X-API-Key"                  # API Key 请求头名称
+  query_param: "api_key"                    # API Key 查询参数名称
+  allow_anonymous: true                     # 是否允许匿名访问（通过 IP 白名单控制）
+  keys:                                     # API Key 列表
+    - key: "dev-key-12345"                  # 开发环境 API Key
+      name: "Development Key"
+      description: "用于开发环境的 API Key"
+      permissions:
+        - "sql.*"                           # 允许所有 SQL 操作
+      active: true
+    - key: "readonly-key-67890"             # 只读 API Key
+      name: "Read-only Key"
+      description: "只允许查询操作的 API Key"
+      permissions:
+        - "sql.query"                       # 只允许查询
+      active: true
+    - key: "admin-key-abcdef"               # 管理员 API Key
+      name: "Admin Key"
+      description: "管理员权限的 API Key"
+      permissions:
+        - "*"                               # 允许所有操作
+      active: true
+
+# SQL 功能配置
+sql:
+  enabled: true                             # 是否启用 SQL 功能
+  allowed_tables:                           # 允许访问的表列表
+    - "items"                               # 项目表
+    - "logs"                                # 日志表（示例）
+  allowed_actions:                          # 允许的操作类型
+    - "select"                              # 查询操作
+    - "insert"                              # 插入操作
+    - "update"                              # 更新操作
+    - "delete"                              # 删除操作
+  max_query_time: 30                        # 最大查询时间（秒）
+  max_result_size: 1000                     # 最大结果集大小（行数）
+  enable_raw_sql: true                      # 是否允许原生 SQL
+  enable_batch: true                        # 是否启用批量操作
+  enable_transactions: true                 # 是否启用事务支持
 
 # 示例：Oracle 数据库配置
 # database:

@@ -1,27 +1,37 @@
 package service
 
 import (
+	"fmt"
+
+	"sql2api/internal/config"
 	"sql2api/internal/repository"
 )
 
 // Services 服务集合
 type Services struct {
-	User UserService
-	Item ItemService
+	SQL SQLService
 }
 
 // NewServices 创建服务集合
-func NewServices(repos *repository.Repositories) *Services {
-	return &Services{
-		User: NewUserService(repos.User),
-		Item: NewItemService(repos.Item, repos.User),
+func NewServices(repos *repository.Repositories, cfg *config.Config) (*Services, error) {
+	// 创建 SQL 服务
+	var sqlService SQLService
+	var err error
+	if cfg.SQL.Enabled {
+		sqlService, err = NewSQLService(repos, &cfg.SQL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create SQL service: %w", err)
+		}
 	}
+
+	return &Services{
+		SQL: sqlService,
+	}, nil
 }
 
 // ServiceManager 服务管理器接口
 type ServiceManager interface {
-	GetUserService() UserService
-	GetItemService() ItemService
+	GetSQLService() SQLService
 }
 
 // serviceManager 服务管理器实现
@@ -30,18 +40,18 @@ type serviceManager struct {
 }
 
 // NewServiceManager 创建服务管理器
-func NewServiceManager(repos *repository.Repositories) ServiceManager {
-	return &serviceManager{
-		services: NewServices(repos),
+func NewServiceManager(repos *repository.Repositories, cfg *config.Config) (ServiceManager, error) {
+	services, err := NewServices(repos, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create services: %w", err)
 	}
+
+	return &serviceManager{
+		services: services,
+	}, nil
 }
 
-// GetUserService 获取用户服务
-func (sm *serviceManager) GetUserService() UserService {
-	return sm.services.User
-}
-
-// GetItemService 获取项目服务
-func (sm *serviceManager) GetItemService() ItemService {
-	return sm.services.Item
+// GetSQLService 获取 SQL 服务
+func (sm *serviceManager) GetSQLService() SQLService {
+	return sm.services.SQL
 }

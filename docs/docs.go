@@ -24,14 +24,9 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/v1/auth/change-password": {
+        "/api/v1/auth/health": {
             "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "修改当前用户的密码",
+                "description": "检查认证服务的健康状态",
                 "consumes": [
                     "application/json"
                 ],
@@ -39,249 +34,14 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "认证"
+                    "系统"
                 ],
-                "summary": "修改密码",
-                "parameters": [
-                    {
-                        "description": "修改密码请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.ChangePasswordRequest"
-                        }
-                    }
-                ],
+                "summary": "认证服务健康检查",
                 "responses": {
                     "200": {
-                        "description": "修改成功",
+                        "description": "服务健康",
                         "schema": {
                             "$ref": "#/definitions/model.SuccessResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "请求格式错误",
-                        "schema": {
-                            "$ref": "#/definitions/model.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "未认证或旧密码错误",
-                        "schema": {
-                            "$ref": "#/definitions/model.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "服务器内部错误",
-                        "schema": {
-                            "$ref": "#/definitions/model.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/auth/login": {
-            "post": {
-                "description": "用户使用用户名和密码登录，返回 JWT 令牌",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "认证"
-                ],
-                "summary": "用户登录",
-                "parameters": [
-                    {
-                        "description": "登录请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.LoginRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "登录成功",
-                        "schema": {
-                            "$ref": "#/definitions/model.SuccessResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "请求格式错误",
-                        "schema": {
-                            "$ref": "#/definitions/model.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "认证失败",
-                        "schema": {
-                            "$ref": "#/definitions/model.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "服务器内部错误",
-                        "schema": {
-                            "$ref": "#/definitions/model.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/auth/logout": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "用户登出（客户端删除令牌）",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "认证"
-                ],
-                "summary": "用户登出",
-                "responses": {
-                    "200": {
-                        "description": "登出成功",
-                        "schema": {
-                            "$ref": "#/definitions/model.SuccessResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/auth/profile": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "获取当前登录用户的详细信息",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "认证"
-                ],
-                "summary": "获取当前用户信息",
-                "responses": {
-                    "200": {
-                        "description": "获取成功",
-                        "schema": {
-                            "$ref": "#/definitions/model.SuccessResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "未认证",
-                        "schema": {
-                            "$ref": "#/definitions/model.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/auth/refresh": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "使用当前令牌获取新的令牌",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "认证"
-                ],
-                "summary": "刷新 JWT 令牌",
-                "responses": {
-                    "200": {
-                        "description": "刷新成功",
-                        "schema": {
-                            "$ref": "#/definitions/model.SuccessResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "令牌无效",
-                        "schema": {
-                            "$ref": "#/definitions/model.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "服务器内部错误",
-                        "schema": {
-                            "$ref": "#/definitions/model.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/auth/register": {
-            "post": {
-                "description": "注册新用户账户",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "认证"
-                ],
-                "summary": "用户注册",
-                "parameters": [
-                    {
-                        "description": "注册请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.UserCreateRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "注册成功",
-                        "schema": {
-                            "$ref": "#/definitions/model.SuccessResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "请求格式错误",
-                        "schema": {
-                            "$ref": "#/definitions/model.ErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "用户已存在",
-                        "schema": {
-                            "$ref": "#/definitions/model.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "服务器内部错误",
-                        "schema": {
-                            "$ref": "#/definitions/model.ErrorResponse"
                         }
                     }
                 }
@@ -291,10 +51,10 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "ApiKeyAuth": []
                     }
                 ],
-                "description": "通过 action 字段分发不同的资源操作",
+                "description": "通过 action 字段分发不同的资源操作，只支持项目（item）相关操作",
                 "consumes": [
                     "application/json"
                 ],
@@ -355,6 +115,258 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/v1/sql": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "支持原生 SQL 和结构化查询，包含分页和排序功能",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SQL"
+                ],
+                "summary": "执行 SQL 查询",
+                "parameters": [
+                    {
+                        "description": "SQL 查询请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.SQLRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "查询成功",
+                        "schema": {
+                            "$ref": "#/definitions/model.SQLResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求格式错误",
+                        "schema": {
+                            "$ref": "#/definitions/model.SQLResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未认证",
+                        "schema": {
+                            "$ref": "#/definitions/model.SQLResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "权限不足",
+                        "schema": {
+                            "$ref": "#/definitions/model.SQLResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/model.SQLResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/sql/batch": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "支持批量 SQL 操作，可选择事务模式",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SQL"
+                ],
+                "summary": "执行批量 SQL 操作",
+                "parameters": [
+                    {
+                        "description": "批量 SQL 请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.BatchSQLRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "批量操作成功",
+                        "schema": {
+                            "$ref": "#/definitions/model.BatchSQLResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求格式错误",
+                        "schema": {
+                            "$ref": "#/definitions/model.BatchSQLResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未认证",
+                        "schema": {
+                            "$ref": "#/definitions/model.BatchSQLResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "权限不足",
+                        "schema": {
+                            "$ref": "#/definitions/model.BatchSQLResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/model.BatchSQLResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/sql/batch-insert": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "提供批量插入功能，支持冲突处理",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SQL"
+                ],
+                "summary": "执行批量插入操作",
+                "parameters": [
+                    {
+                        "description": "批量插入请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.BatchInsertRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "批量插入成功",
+                        "schema": {
+                            "$ref": "#/definitions/model.SQLResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求格式错误",
+                        "schema": {
+                            "$ref": "#/definitions/model.SQLResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未认证",
+                        "schema": {
+                            "$ref": "#/definitions/model.SQLResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "权限不足",
+                        "schema": {
+                            "$ref": "#/definitions/model.SQLResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/model.SQLResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/sql/insert": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "提供简化的插入操作，支持冲突处理",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SQL"
+                ],
+                "summary": "执行便捷插入操作",
+                "parameters": [
+                    {
+                        "description": "插入请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.InsertRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "插入成功",
+                        "schema": {
+                            "$ref": "#/definitions/model.SQLResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求格式错误",
+                        "schema": {
+                            "$ref": "#/definitions/model.SQLResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未认证",
+                        "schema": {
+                            "$ref": "#/definitions/model.SQLResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "权限不足",
+                        "schema": {
+                            "$ref": "#/definitions/model.SQLResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/model.SQLResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -372,26 +384,130 @@ const docTemplate = `{
                 }
             }
         },
-        "model.ChangePasswordRequest": {
+        "model.BatchInsertRequest": {
             "type": "object",
             "required": [
-                "new_password",
-                "old_password"
+                "data",
+                "database_type",
+                "table"
             ],
             "properties": {
-                "new_password": {
-                    "type": "string",
-                    "example": "newpassword123"
+                "data": {
+                    "type": "array",
+                    "maxItems": 1000,
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                    }
                 },
-                "old_password": {
+                "database_type": {
                     "type": "string",
-                    "example": "oldpassword123"
+                    "enum": [
+                        "postgres",
+                        "oracle"
+                    ],
+                    "example": "postgres"
+                },
+                "on_conflict": {
+                    "type": "string",
+                    "enum": [
+                        "ignore",
+                        "update"
+                    ],
+                    "example": "ignore"
+                },
+                "return_fields": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"id\"",
+                        " \"created_at\"]"
+                    ]
+                },
+                "table": {
+                    "type": "string",
+                    "example": "items"
+                }
+            }
+        },
+        "model.BatchSQLRequest": {
+            "type": "object",
+            "required": [
+                "database_type",
+                "operations"
+            ],
+            "properties": {
+                "continue_on_error": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "database_type": {
+                    "type": "string",
+                    "enum": [
+                        "postgres",
+                        "oracle"
+                    ],
+                    "example": "postgres"
+                },
+                "operations": {
+                    "type": "array",
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/model.SQLRequest"
+                    }
+                },
+                "transactional": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "model.BatchSQLResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/model.SQLError"
+                },
+                "executed_count": {
+                    "type": "integer"
+                },
+                "execution_time": {
+                    "type": "number"
+                },
+                "failed_count": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.SQLOperationResult"
+                    }
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "total_affected_rows": {
+                    "type": "integer"
                 }
             }
         },
         "model.ErrorResponse": {
             "type": "object",
             "properties": {
+                "affected_rows": {
+                    "description": "SQL 操作影响的行数",
+                    "type": "integer"
+                },
                 "data": {},
                 "error": {
                     "$ref": "#/definitions/model.APIError"
@@ -399,28 +515,28 @@ const docTemplate = `{
                 "message": {
                     "type": "string"
                 },
+                "page": {
+                    "description": "当前页码",
+                    "type": "integer"
+                },
+                "page_size": {
+                    "description": "每页大小",
+                    "type": "integer"
+                },
                 "success": {
                     "type": "boolean"
                 },
                 "timestamp": {
                     "type": "string"
+                },
+                "total": {
+                    "description": "查询结果总数",
+                    "type": "integer"
                 }
             }
         },
-        "model.LoginRequest": {
-            "type": "object",
-            "required": [
-                "password",
-                "username"
-            ],
-            "properties": {
-                "password": {
-                    "type": "string"
-                },
-                "username": {
-                    "type": "string"
-                }
-            }
+        "model.InsertRequest": {
+            "type": "object"
         },
         "model.ResourceRequest": {
             "type": "object",
@@ -443,9 +559,114 @@ const docTemplate = `{
                 }
             }
         },
+        "model.SQLError": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "错误码：4001-4007",
+                    "type": "integer"
+                },
+                "details": {
+                    "description": "详细信息",
+                    "type": "string"
+                },
+                "message": {
+                    "description": "错误消息",
+                    "type": "string"
+                },
+                "query": {
+                    "description": "出错的查询（敏感信息已脱敏）",
+                    "type": "string"
+                },
+                "sql_state": {
+                    "description": "数据库特定的错误状态",
+                    "type": "string"
+                }
+            }
+        },
+        "model.SQLOperationResult": {
+            "type": "object",
+            "properties": {
+                "affected_rows": {
+                    "type": "integer"
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                    }
+                },
+                "error": {
+                    "$ref": "#/definitions/model.SQLError"
+                },
+                "execution_time": {
+                    "type": "number"
+                },
+                "index": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "model.SQLRequest": {
+            "type": "object"
+        },
+        "model.SQLResponse": {
+            "type": "object",
+            "properties": {
+                "affected_rows": {
+                    "type": "integer"
+                },
+                "columns": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                    }
+                },
+                "error": {
+                    "$ref": "#/definitions/model.SQLError"
+                },
+                "execution_time": {
+                    "description": "执行时间（毫秒）",
+                    "type": "number"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "model.SuccessResponse": {
             "type": "object",
             "properties": {
+                "affected_rows": {
+                    "description": "SQL 操作影响的行数",
+                    "type": "integer"
+                },
                 "data": {},
                 "error": {
                     "$ref": "#/definitions/model.APIError"
@@ -453,46 +674,32 @@ const docTemplate = `{
                 "message": {
                     "type": "string"
                 },
+                "page": {
+                    "description": "当前页码",
+                    "type": "integer"
+                },
+                "page_size": {
+                    "description": "每页大小",
+                    "type": "integer"
+                },
                 "success": {
                     "type": "boolean"
                 },
                 "timestamp": {
                     "type": "string"
-                }
-            }
-        },
-        "model.UserCreateRequest": {
-            "type": "object",
-            "required": [
-                "password",
-                "username"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
                 },
-                "full_name": {
-                    "type": "string",
-                    "maxLength": 255
-                },
-                "password": {
-                    "type": "string",
-                    "maxLength": 100,
-                    "minLength": 6
-                },
-                "username": {
-                    "type": "string",
-                    "maxLength": 50,
-                    "minLength": 3
+                "total": {
+                    "description": "查询结果总数",
+                    "type": "integer"
                 }
             }
         }
     },
     "securityDefinitions": {
-        "BearerAuth": {
-            "description": "JWT Authorization header using the Bearer scheme. Example: 'Bearer {token}'",
+        "ApiKeyAuth": {
+            "description": "API Key authentication. Example: 'your-api-key-here'",
             "type": "apiKey",
-            "name": "Authorization",
+            "name": "X-API-Key",
             "in": "header"
         }
     }
@@ -505,9 +712,11 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/api/v1",
 	Schemes:          []string{"http", "https"},
 	Title:            "SQL2API Server",
-	Description:      "SQL2API 是一个现代化的 RESTful API 服务，支持统一的 CRUD 操作、JWT 认证、IP 白名单等功能",
+	Description:      "SQL2API 是一个现代化的 RESTful API 服务，支持统一的 CRUD 操作、SQL 查询引擎、API Key 认证、IP 白名单等功能",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
+	LeftDelim:        "{{",
+	RightDelim:       "}}",
 }
 
 func init() {

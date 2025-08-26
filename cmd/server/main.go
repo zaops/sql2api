@@ -2,7 +2,7 @@
 //
 // @title SQL2API Server
 // @version 1.0.0
-// @description SQL2API 是一个现代化的 RESTful API 服务，支持统一的 CRUD 操作、JWT 认证、IP 白名单等功能
+// @description SQL2API 是一个现代化的 RESTful API 服务，支持统一的 CRUD 操作、SQL 查询引擎、API Key 认证、IP 白名单等功能
 // @termsOfService http://swagger.io/terms/
 // @contact.name SQL2API Team
 // @contact.email support@sql2api.com
@@ -12,15 +12,26 @@
 // @host localhost:8081
 // @BasePath /api/v1
 // @schemes http https
-// @securityDefinitions.apikey BearerAuth
+// @securityDefinitions.apikey ApiKeyAuth
 // @in header
-// @name Authorization
-// @description JWT Authorization header using the Bearer scheme. Example: 'Bearer {token}'
+// @name X-API-Key
+// @description API Key authentication. Example: 'your-api-key-here'
+//
+// @tag.name Health
+// @tag.description Health check endpoints
+//
+// @tag.name Resource
+// @tag.description Resource management endpoints
+//
+// @tag.name SQL
+// @tag.description SQL query and manipulation endpoints with support for PostgreSQL and Oracle databases
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	"sql2api/internal/config"
 	"sql2api/internal/handler"
@@ -41,7 +52,47 @@ import (
 	"gorm.io/gorm"
 )
 
+// 版本信息变量，在构建时通过 -ldflags 注入
+var (
+	version   = "1.0.0"
+	buildTime = "unknown"
+	gitCommit = "unknown"
+)
+
 func main() {
+	// 解析命令行参数
+	var showVersion = flag.Bool("version", false, "显示版本信息")
+	var showHelp = flag.Bool("help", false, "显示帮助信息")
+	flag.Parse()
+
+	// 显示版本信息
+	if *showVersion {
+		fmt.Printf("SQL2API Server\n")
+		fmt.Printf("Version: %s\n", version)
+		fmt.Printf("Build Time: %s\n", buildTime)
+		fmt.Printf("Git Commit: %s\n", gitCommit)
+		os.Exit(0)
+	}
+
+	// 显示帮助信息
+	if *showHelp {
+		fmt.Printf("SQL2API Server - A powerful API server that converts SQL operations to REST endpoints\n\n")
+		fmt.Printf("Usage:\n")
+		fmt.Printf("  sql2api [options]\n\n")
+		fmt.Printf("Options:\n")
+		fmt.Printf("  -version    显示版本信息\n")
+		fmt.Printf("  -help       显示帮助信息\n\n")
+		fmt.Printf("Configuration:\n")
+		fmt.Printf("  配置文件: config.yaml\n")
+		fmt.Printf("  环境变量: SQL2API_* (例如: SQL2API_SERVER_PORT=8080)\n\n")
+		fmt.Printf("Documentation:\n")
+		fmt.Printf("  Swagger UI: http://localhost:8080/swagger/index.html\n")
+		fmt.Printf("  Examples: ./examples/sql_examples.md\n")
+		os.Exit(0)
+	}
+
+	fmt.Printf("🚀 Starting SQL2API Server %s\n", version)
+
 	// 运行服务器
 	if err := RunServer(); err != nil {
 		log.Fatalf("Server error: %v", err)
@@ -151,51 +202,11 @@ func mainOld() {
 				stats["open_connections"], stats["in_use"], stats["idle"])
 		}
 
-		// 测试用户仓库（不实际操作数据库）
-		fmt.Println("✅ User repository initialized")
+		// 测试项目仓库（不实际操作数据库）
 		fmt.Println("✅ Item repository initialized")
 
 		fmt.Println("✅ All repository operations verified")
 	}
-
-	// 测试 JWT 中间件
-	fmt.Println("\nTesting JWT middleware...")
-
-	// 创建 JWT 管理器
-	jwtManager := middleware.NewJWTManager(&cfg.JWT)
-	fmt.Println("✅ JWT manager created")
-
-	// 测试令牌生成
-	testUser := &model.User{
-		ID:       1,
-		Username: "testuser",
-		Email:    "test@example.com",
-	}
-
-	token, expiresAt, err := jwtManager.GenerateToken(testUser)
-	if err != nil {
-		log.Printf("Failed to generate token: %v", err)
-	} else {
-		fmt.Printf("✅ JWT token generated successfully\n")
-		fmt.Printf("   Token length: %d characters\n", len(token))
-		fmt.Printf("   Expires at: %v\n", expiresAt.Format("2006-01-02 15:04:05"))
-	}
-
-	// 测试令牌验证
-	if token != "" {
-		claims, err := jwtManager.ValidateToken(token)
-		if err != nil {
-			log.Printf("Failed to validate token: %v", err)
-		} else {
-			fmt.Printf("✅ JWT token validation successful\n")
-			fmt.Printf("   User ID: %d\n", claims.UserID)
-			fmt.Printf("   Username: %s\n", claims.Username)
-			fmt.Printf("   Email: %s\n", claims.Email)
-			fmt.Printf("   Issuer: %s\n", claims.Issuer)
-		}
-	}
-
-	fmt.Println("✅ JWT middleware verified successfully")
 
 	// 测试 IP 白名单中间件
 	fmt.Println("\nTesting IP whitelist middleware...")

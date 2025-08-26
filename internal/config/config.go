@@ -11,9 +11,11 @@ import (
 type Config struct {
 	Server   ServerConfig   `mapstructure:"server"`
 	Database DatabaseConfig `mapstructure:"database"`
-	JWT      JWTConfig      `mapstructure:"jwt"`
 	Security SecurityConfig `mapstructure:"security"`
 	Log      LogConfig      `mapstructure:"log"`
+	Swagger  SwaggerConfig  `mapstructure:"swagger"`
+	APIKeys  APIKeyConfig   `mapstructure:"api_keys"`
+	SQL      SQLConfig      `mapstructure:"sql"`
 }
 
 // ServerConfig 服务器配置
@@ -41,13 +43,6 @@ type DatabaseConfig struct {
 	MaxLifetime  int    `mapstructure:"max_lifetime"` // 分钟
 }
 
-// JWTConfig JWT 配置
-type JWTConfig struct {
-	Secret     string `mapstructure:"secret"`
-	Expiration int    `mapstructure:"expiration"` // 小时
-	Issuer     string `mapstructure:"issuer"`
-}
-
 // SecurityConfig 安全配置
 type SecurityConfig struct {
 	IPWhitelist []string `mapstructure:"ip_whitelist"`
@@ -61,6 +56,46 @@ type LogConfig struct {
 	Format string `mapstructure:"format"` // json, text
 	Output string `mapstructure:"output"` // stdout, file
 	File   string `mapstructure:"file"`   // 日志文件路径
+}
+
+// SwaggerConfig Swagger 文档配置
+type SwaggerConfig struct {
+	Title       string   `mapstructure:"title"`        // API 标题
+	Version     string   `mapstructure:"version"`      // API 版本
+	Description string   `mapstructure:"description"`  // API 描述
+	Host        string   `mapstructure:"host"`         // API 主机地址
+	BasePath    string   `mapstructure:"base_path"`    // API 基础路径
+	Schemes     []string `mapstructure:"schemes"`      // 支持的协议
+}
+
+// APIKeyConfig API Key 配置
+type APIKeyConfig struct {
+	Enabled     bool              `mapstructure:"enabled"`      // 是否启用 API Key 认证
+	Keys        []APIKeyItem      `mapstructure:"keys"`         // API Key 列表
+	HeaderName  string            `mapstructure:"header_name"`  // API Key 请求头名称
+	QueryParam  string            `mapstructure:"query_param"`  // API Key 查询参数名称
+	AllowAnonymous bool           `mapstructure:"allow_anonymous"` // 是否允许匿名访问
+}
+
+// APIKeyItem API Key 项目
+type APIKeyItem struct {
+	Key         string   `mapstructure:"key"`         // API Key 值
+	Name        string   `mapstructure:"name"`        // API Key 名称
+	Description string   `mapstructure:"description"` // API Key 描述
+	Permissions []string `mapstructure:"permissions"` // 权限列表
+	Active      bool     `mapstructure:"active"`      // 是否激活
+}
+
+// SQLConfig SQL 功能配置
+type SQLConfig struct {
+	Enabled            bool     `mapstructure:"enabled"`              // 是否启用 SQL 功能
+	AllowedTables      []string `mapstructure:"allowed_tables"`       // 允许访问的表列表
+	AllowedActions     []string `mapstructure:"allowed_actions"`      // 允许的操作类型
+	MaxQueryTime       int      `mapstructure:"max_query_time"`       // 最大查询时间（秒）
+	MaxResultSize      int      `mapstructure:"max_result_size"`      // 最大结果集大小（行数）
+	EnableRawSQL       bool     `mapstructure:"enable_raw_sql"`       // 是否允许原生 SQL
+	EnableBatch        bool     `mapstructure:"enable_batch"`         // 是否启用批量操作
+	EnableTransactions bool     `mapstructure:"enable_transactions"`  // 是否启用事务支持
 }
 
 // Load 加载配置
@@ -127,11 +162,6 @@ func setDefaults() {
 	viper.SetDefault("database.max_idle_conns", 10)
 	viper.SetDefault("database.max_lifetime", 60)
 
-	// JWT 默认配置
-	viper.SetDefault("jwt.secret", "your-secret-key-change-in-production")
-	viper.SetDefault("jwt.expiration", 24)
-	viper.SetDefault("jwt.issuer", "sql2api")
-
 	// 安全默认配置
 	viper.SetDefault("security.ip_whitelist", []string{"127.0.0.1", "::1"})
 	viper.SetDefault("security.enable_cors", true)
@@ -142,6 +172,31 @@ func setDefaults() {
 	viper.SetDefault("log.format", "json")
 	viper.SetDefault("log.output", "stdout")
 	viper.SetDefault("log.file", "sql2api.log")
+
+	// Swagger 默认配置
+	viper.SetDefault("swagger.title", "SQL2API Server")
+	viper.SetDefault("swagger.version", "1.0.0")
+	viper.SetDefault("swagger.description", "SQL2API 是一个现代化的 RESTful API 服务，支持统一的 CRUD 操作、JWT 认证、IP 白名单等功能")
+	viper.SetDefault("swagger.host", "localhost:8081")
+	viper.SetDefault("swagger.base_path", "/api/v1")
+	viper.SetDefault("swagger.schemes", []string{"http", "https"})
+
+	// API Key 默认配置
+	viper.SetDefault("api_keys.enabled", false)
+	viper.SetDefault("api_keys.header_name", "X-API-Key")
+	viper.SetDefault("api_keys.query_param", "api_key")
+	viper.SetDefault("api_keys.allow_anonymous", false)
+	viper.SetDefault("api_keys.keys", []APIKeyItem{})
+
+	// SQL 功能默认配置
+	viper.SetDefault("sql.enabled", true)
+	viper.SetDefault("sql.allowed_tables", []string{"items"})
+	viper.SetDefault("sql.allowed_actions", []string{"select", "insert", "update", "delete"})
+	viper.SetDefault("sql.max_query_time", 30)
+	viper.SetDefault("sql.max_result_size", 1000)
+	viper.SetDefault("sql.enable_raw_sql", true)
+	viper.SetDefault("sql.enable_batch", true)
+	viper.SetDefault("sql.enable_transactions", true)
 }
 
 // validateConfig 验证配置
@@ -156,11 +211,6 @@ func validateConfig(config *Config) error {
 		return fmt.Errorf("invalid server port: %d", config.Server.Port)
 	}
 
-	// 验证 JWT 密钥
-	if len(config.JWT.Secret) < 32 {
-		return fmt.Errorf("JWT secret must be at least 32 characters long")
-	}
-
 	// 验证日志级别
 	validLogLevels := []string{"debug", "info", "warn", "error"}
 	isValidLevel := false
@@ -172,6 +222,32 @@ func validateConfig(config *Config) error {
 	}
 	if !isValidLevel {
 		return fmt.Errorf("invalid log level: %s", config.Log.Level)
+	}
+
+	// 验证 SQL 配置
+	if config.SQL.Enabled {
+		// 验证查询时间限制
+		if config.SQL.MaxQueryTime <= 0 || config.SQL.MaxQueryTime > 300 {
+			return fmt.Errorf("invalid max_query_time: %d (must be between 1 and 300 seconds)", config.SQL.MaxQueryTime)
+		}
+
+		// 验证结果集大小限制
+		if config.SQL.MaxResultSize <= 0 || config.SQL.MaxResultSize > 10000 {
+			return fmt.Errorf("invalid max_result_size: %d (must be between 1 and 10000 rows)", config.SQL.MaxResultSize)
+		}
+
+		// 验证允许的操作类型
+		validActions := map[string]bool{
+			"select": true,
+			"insert": true,
+			"update": true,
+			"delete": true,
+		}
+		for _, action := range config.SQL.AllowedActions {
+			if !validActions[action] {
+				return fmt.Errorf("invalid SQL action: %s", action)
+			}
+		}
 	}
 
 	return nil

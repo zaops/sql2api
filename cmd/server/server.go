@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"sql2api/docs"
 	"sql2api/internal/config"
 	"sql2api/internal/handler"
 	"sql2api/internal/middleware"
@@ -21,14 +22,14 @@ import (
 
 // Server HTTP 服务器结构
 type Server struct {
-	config     *config.Config
-	router     *gin.Engine
-	server     *http.Server
-	repos      *repository.Repositories
-	services   *service.Services
-	handlers   *handler.Handlers
-	jwtManager *middleware.JWTManager
-	ipManager  *middleware.IPWhitelistManager
+	config        *config.Config
+	router        *gin.Engine
+	server        *http.Server
+	repos         *repository.Repositories
+	services      *service.Services
+	handlers      *handler.Handlers
+	ipManager     *middleware.IPWhitelistManager
+	apiKeyManager *middleware.APIKeyManager
 }
 
 // NewServer 创建新的服务器实例
@@ -38,6 +39,14 @@ func NewServer() (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load configuration: %w", err)
 	}
+
+	// 配置 Swagger 信息
+	docs.SwaggerInfo.Title = cfg.Swagger.Title
+	docs.SwaggerInfo.Description = cfg.Swagger.Description
+	docs.SwaggerInfo.Version = cfg.Swagger.Version
+	docs.SwaggerInfo.Host = cfg.Swagger.Host
+	docs.SwaggerInfo.BasePath = cfg.Swagger.BasePath
+	docs.SwaggerInfo.Schemes = cfg.Swagger.Schemes
 
 	server := &Server{
 		config: cfg,
@@ -75,13 +84,24 @@ func (s *Server) initializeComponents() error {
 
 	// 初始化服务层
 	if s.repos != nil {
-		s.services = service.NewServices(s.repos)
+		services, err := service.NewServices(s.repos, &s.config)
+		if err != nil {
+			return fmt.Errorf("failed to initialize services: %w", err)
+		}
+		s.services = services
 		fmt.Println("✅ Business services initialized")
+
+		// 检查 SQL 服务状态
+		if s.services.SQL != nil {
+			fmt.Println("✅ SQL service enabled and initialized")
+		} else {
+			fmt.Println("ℹ️  SQL service disabled")
+		}
 	}
 
-	// 初始化 JWT 管理器
-	s.jwtManager = middleware.NewJWTManager(&s.config.JWT)
-	fmt.Println("✅ JWT manager initialized")
+	// 初始化 API Key 管理器
+	s.apiKeyManager = middleware.NewAPIKeyManager(&s.config.APIKeys)
+	fmt.Printf("✅ API Key manager initialized (enabled: %v)\n", s.config.APIKeys.Enabled)
 
 	// 初始化 IP 白名单管理器
 	ipManager, err := middleware.NewIPWhitelistManager(&s.config.Security)
@@ -95,7 +115,7 @@ func (s *Server) initializeComponents() error {
 
 	// 初始化处理器
 	if s.services != nil {
-		s.handlers = handler.NewHandlers(s.services, s.jwtManager)
+		s.handlers = handler.NewHandlers(s.services)
 		fmt.Println("✅ API handlers initialized")
 	}
 
@@ -116,7 +136,7 @@ func (s *Server) setupRoutes() error {
 
 	// 设置路由
 	if s.handlers != nil {
-		handler.SetupRoutes(s.router, s.handlers, s.jwtManager, s.ipManager)
+		handler.SetupRoutes(s.router, s.handlers, s.ipManager, s.apiKeyManager)
 		fmt.Println("✅ Routes configured")
 	} else {
 		// 如果没有完整的处理器，至少设置健康检查

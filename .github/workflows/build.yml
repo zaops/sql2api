@@ -1,0 +1,283 @@
+name: Build and Release SQL2API
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # 当推送 v1.0.0 格式的标签时触发
+  workflow_dispatch:  # 手动触发
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+env:
+  GO_VERSION: '1.24'
+  APP_NAME: 'sql2api'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Set up build tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y upx-ucl
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+
+
+    - name: Install Go dependencies
+      run: |
+        go mod download
+        go mod tidy
+
+    - name: Generate Swagger docs
+      run: |
+        go install github.com/swaggo/swag/cmd/swag@latest
+        swag init -g cmd/server/main.go -o docs
+
+    - name: Run tests
+      run: |
+        go test -v ./...
+
+    - name: Build binaries for multiple platforms
+      run: |
+        # Create build directory
+        mkdir -p build
+
+        # Set build variables
+        VERSION="${{ github.ref_name || inputs.version }}"
+        BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        GIT_COMMIT="${{ github.sha }}"
+        LDFLAGS="-s -w -X main.version=${VERSION} -X main.buildTime=${BUILD_TIME} -X main.gitCommit=${GIT_COMMIT}"
+
+        echo "Building SQL2API ${VERSION}"
+        echo "Build Time: ${BUILD_TIME}"
+        echo "Git Commit: ${GIT_COMMIT}"
+
+        # Build for Linux AMD64
+        echo "Building for Linux AMD64..."
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+          -ldflags="${LDFLAGS}" \
+          -o build/${APP_NAME}-linux-amd64 \
+          cmd/server/main.go
+
+        # Build for Linux ARM64
+        echo "Building for Linux ARM64..."
+        CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
+          -ldflags="${LDFLAGS}" \
+          -o build/${APP_NAME}-linux-arm64 \
+          cmd/server/main.go
+
+        # Build for Windows AMD64
+        echo "Building for Windows AMD64..."
+        CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build \
+          -ldflags="${LDFLAGS}" \
+          -o build/${APP_NAME}-windows-amd64.exe \
+          cmd/server/main.go
+
+        # Build for macOS AMD64
+        echo "Building for macOS AMD64..."
+        CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build \
+          -ldflags="${LDFLAGS}" \
+          -o build/${APP_NAME}-darwin-amd64 \
+          cmd/server/main.go
+
+        # Build for macOS ARM64 (Apple Silicon)
+        echo "Building for macOS ARM64..."
+        CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build \
+          -ldflags="${LDFLAGS}" \
+          -o build/${APP_NAME}-darwin-arm64 \
+          cmd/server/main.go
+
+        # Display build results
+        echo "Build completed successfully!"
+        ls -la build/
+
+    - name: Compress binaries with UPX
+      run: |
+        # Compress Linux binaries
+        upx --best --lzma build/${APP_NAME}-linux-amd64
+        upx --best --lzma build/${APP_NAME}-linux-arm64
+
+        # Compress Windows binary
+        upx --best --lzma build/${APP_NAME}-windows-amd64.exe
+
+        # Note: UPX doesn't work well with macOS binaries, so we skip them
+
+    - name: Create distribution packages
+      run: |
+        mkdir -p dist
+
+        # Copy configuration files
+        cp config.yaml dist/
+        cp README.md dist/
+        cp -r examples dist/
+
+        # Create Linux AMD64 package
+        mkdir -p dist/linux-amd64
+        cp build/${APP_NAME}-linux-amd64 dist/linux-amd64/${APP_NAME}
+        cp config.yaml dist/linux-amd64/
+        cp README.md dist/linux-amd64/
+        cp -r examples dist/linux-amd64/
+        cd dist && tar -czf ${APP_NAME}-linux-amd64.tar.gz linux-amd64/ && cd ..
+
+        # Create Linux ARM64 package
+        mkdir -p dist/linux-arm64
+        cp build/${APP_NAME}-linux-arm64 dist/linux-arm64/${APP_NAME}
+        cp config.yaml dist/linux-arm64/
+        cp README.md dist/linux-arm64/
+        cp -r examples dist/linux-arm64/
+        cd dist && tar -czf ${APP_NAME}-linux-arm64.tar.gz linux-arm64/ && cd ..
+
+        # Create Windows package
+        mkdir -p dist/windows-amd64
+        cp build/${APP_NAME}-windows-amd64.exe dist/windows-amd64/${APP_NAME}.exe
+        cp config.yaml dist/windows-amd64/
+        cp README.md dist/windows-amd64/
+        cp -r examples dist/windows-amd64/
+        cd dist && zip -r ${APP_NAME}-windows-amd64.zip windows-amd64/ && cd ..
+
+        # Create macOS AMD64 package
+        mkdir -p dist/darwin-amd64
+        cp build/${APP_NAME}-darwin-amd64 dist/darwin-amd64/${APP_NAME}
+        cp config.yaml dist/darwin-amd64/
+        cp README.md dist/darwin-amd64/
+        cp -r examples dist/darwin-amd64/
+        cd dist && tar -czf ${APP_NAME}-darwin-amd64.tar.gz darwin-amd64/ && cd ..
+
+        # Create macOS ARM64 package
+        mkdir -p dist/darwin-arm64
+        cp build/${APP_NAME}-darwin-arm64 dist/darwin-arm64/${APP_NAME}
+        cp config.yaml dist/darwin-arm64/
+        cp README.md dist/darwin-arm64/
+        cp -r examples dist/darwin-arm64/
+        cd dist && tar -czf ${APP_NAME}-darwin-arm64.tar.gz darwin-arm64/ && cd ..
+
+    - name: Create checksums
+      run: |
+        cd dist
+        for file in *.tar.gz *.zip; do
+          sha256sum "$file" > "$file.sha256"
+        done
+
+    - name: Determine version
+      id: version
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Get build date
+      id: build_date
+      run: echo "date=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        name: SQL2API ${{ steps.version.outputs.version }}
+        body: |
+          ## SQL2API ${{ steps.version.outputs.version }}
+
+          🚀 **新版本发布**
+
+          SQL2API 是一个强大的 API 服务器，将 SQL 操作转换为 REST 端点，支持 PostgreSQL 和 Oracle 数据库。
+
+          ### ✨ 主要特性
+
+          - 🔍 **强大的 SQL 引擎**：支持原生 SQL、结构化查询、批量操作
+          - 🛡️ **多层安全防护**：SQL 注入防护、权限控制、表白名单
+          - ⚡ **批量操作**：支持事务和非事务模式的批量 SQL 操作
+          - 📈 **性能监控**：内置查询性能监控和慢查询检测
+          - 🔐 **API Key 认证**：支持细粒度权限控制
+          - 📊 **多数据库支持**：PostgreSQL 和 Oracle
+          - 📝 **完整文档**：Swagger UI 和详细使用示例
+
+          ### 📦 下载说明
+
+          选择适合你的操作系统的版本：
+
+          - **Windows (x64)**: `sql2api-windows-amd64.zip`
+          - **macOS (Intel)**: `sql2api-darwin-amd64.tar.gz`
+          - **macOS (Apple Silicon)**: `sql2api-darwin-arm64.tar.gz`
+          - **Linux (x64)**: `sql2api-linux-amd64.tar.gz`
+          - **Linux (ARM64)**: `sql2api-linux-arm64.tar.gz`
+          
+          ### 🛠️ 快速开始
+
+          1. 下载对应平台的压缩包并解压
+          2. 配置 `config.yaml` 文件（数据库连接、API Keys 等）
+          3. 给二进制文件添加执行权限（Linux/macOS）: `chmod +x sql2api`
+          4. 运行: `./sql2api` 或 `sql2api.exe`（Windows）
+          5. 访问 Swagger UI: http://localhost:8080/swagger/index.html
+
+          ### 🔧 配置说明
+
+          - 配置数据库连接（PostgreSQL 或 Oracle）
+          - 设置 API Keys 和权限
+          - 配置允许访问的表和操作
+          - 调整查询超时和结果集大小限制
+
+          ### 📚 API 端点
+
+          - `POST /api/v1/sql` - 通用 SQL 查询
+          - `POST /api/v1/sql/batch` - 批量 SQL 操作
+          - `POST /api/v1/sql/insert` - 便捷插入
+          - `POST /api/v1/sql/batch-insert` - 批量插入
+          
+          ### 🔐 校验和
+          
+          每个二进制文件都附带了 SHA256 校验和文件（.sha256），用于验证文件完整性。
+          
+          ---
+          
+          📅 构建时间: ${{ steps.build_date.outputs.date }}
+          🏗️ 构建环境: GitHub Actions
+        files: |
+          dist/sql2api-windows-amd64.zip
+          dist/sql2api-windows-amd64.zip.sha256
+          dist/sql2api-darwin-amd64.tar.gz
+          dist/sql2api-darwin-amd64.tar.gz.sha256
+          dist/sql2api-darwin-arm64.tar.gz
+          dist/sql2api-darwin-arm64.tar.gz.sha256
+          dist/sql2api-linux-amd64.tar.gz
+          dist/sql2api-linux-amd64.tar.gz.sha256
+          dist/sql2api-linux-arm64.tar.gz
+          dist/sql2api-linux-arm64.tar.gz.sha256
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Show build summary
+      run: |
+        echo "🎉 Build completed successfully!"
+        echo "📦 Release: ${{ steps.version.outputs.version }}"
+        echo "🏗️ Built files:"
+        ls -lh dist/

@@ -9,39 +9,114 @@ definitions:
       message:
         type: string
     type: object
-  model.ChangePasswordRequest:
+  model.BatchInsertRequest:
     properties:
-      new_password:
-        example: newpassword123
+      data:
+        items:
+          additionalProperties: true
+          type: object
+        maxItems: 1000
+        minItems: 1
+        type: array
+      database_type:
+        enum:
+        - postgres
+        - oracle
+        example: postgres
         type: string
-      old_password:
-        example: oldpassword123
+      on_conflict:
+        enum:
+        - ignore
+        - update
+        example: ignore
+        type: string
+      return_fields:
+        example:
+        - '["id"'
+        - ' "created_at"]'
+        items:
+          type: string
+        type: array
+      table:
+        example: items
         type: string
     required:
-    - new_password
-    - old_password
+    - data
+    - database_type
+    - table
+    type: object
+  model.BatchSQLRequest:
+    properties:
+      continue_on_error:
+        example: false
+        type: boolean
+      database_type:
+        enum:
+        - postgres
+        - oracle
+        example: postgres
+        type: string
+      operations:
+        items:
+          $ref: '#/definitions/model.SQLRequest'
+        maxItems: 100
+        minItems: 1
+        type: array
+      transactional:
+        example: true
+        type: boolean
+    required:
+    - database_type
+    - operations
+    type: object
+  model.BatchSQLResponse:
+    properties:
+      error:
+        $ref: '#/definitions/model.SQLError'
+      executed_count:
+        type: integer
+      execution_time:
+        type: number
+      failed_count:
+        type: integer
+      message:
+        type: string
+      results:
+        items:
+          $ref: '#/definitions/model.SQLOperationResult'
+        type: array
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      total_affected_rows:
+        type: integer
     type: object
   model.ErrorResponse:
     properties:
+      affected_rows:
+        description: SQL 操作影响的行数
+        type: integer
       data: {}
       error:
         $ref: '#/definitions/model.APIError'
       message:
         type: string
+      page:
+        description: 当前页码
+        type: integer
+      page_size:
+        description: 每页大小
+        type: integer
       success:
         type: boolean
       timestamp:
         type: string
+      total:
+        description: 查询结果总数
+        type: integer
     type: object
-  model.LoginRequest:
-    properties:
-      password:
-        type: string
-      username:
-        type: string
-    required:
-    - password
-    - username
+  model.InsertRequest:
     type: object
   model.ResourceRequest:
     properties:
@@ -58,36 +133,98 @@ definitions:
     - action
     - resource
     type: object
+  model.SQLError:
+    properties:
+      code:
+        description: 错误码：4001-4007
+        type: integer
+      details:
+        description: 详细信息
+        type: string
+      message:
+        description: 错误消息
+        type: string
+      query:
+        description: 出错的查询（敏感信息已脱敏）
+        type: string
+      sql_state:
+        description: 数据库特定的错误状态
+        type: string
+    type: object
+  model.SQLOperationResult:
+    properties:
+      affected_rows:
+        type: integer
+      data:
+        items:
+          additionalProperties: true
+          type: object
+        type: array
+      error:
+        $ref: '#/definitions/model.SQLError'
+      execution_time:
+        type: number
+      index:
+        type: integer
+      success:
+        type: boolean
+    type: object
+  model.SQLRequest:
+    type: object
+  model.SQLResponse:
+    properties:
+      affected_rows:
+        type: integer
+      columns:
+        items:
+          type: string
+        type: array
+      data:
+        items:
+          additionalProperties: true
+          type: object
+        type: array
+      error:
+        $ref: '#/definitions/model.SQLError'
+      execution_time:
+        description: 执行时间（毫秒）
+        type: number
+      message:
+        type: string
+      page:
+        type: integer
+      page_size:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      total:
+        type: integer
+    type: object
   model.SuccessResponse:
     properties:
+      affected_rows:
+        description: SQL 操作影响的行数
+        type: integer
       data: {}
       error:
         $ref: '#/definitions/model.APIError'
       message:
         type: string
+      page:
+        description: 当前页码
+        type: integer
+      page_size:
+        description: 每页大小
+        type: integer
       success:
         type: boolean
       timestamp:
         type: string
-    type: object
-  model.UserCreateRequest:
-    properties:
-      email:
-        type: string
-      full_name:
-        maxLength: 255
-        type: string
-      password:
-        maxLength: 100
-        minLength: 6
-        type: string
-      username:
-        maxLength: 50
-        minLength: 3
-        type: string
-    required:
-    - password
-    - username
+      total:
+        description: 查询结果总数
+        type: integer
     type: object
 host: localhost:8081
 info:
@@ -95,7 +232,8 @@ info:
     email: support@sql2api.com
     name: SQL2API Team
     url: http://www.sql2api.com
-  description: SQL2API 是一个现代化的 RESTful API 服务，支持统一的 CRUD 操作、JWT 认证、IP 白名单等功能
+  description: SQL2API 是一个现代化的 RESTful API 服务，支持统一的 CRUD 操作、SQL 查询引擎、API Key 认证、IP
+    白名单等功能
   license:
     name: MIT
     url: http://opensource.org/licenses/MIT
@@ -103,178 +241,26 @@ info:
   title: SQL2API Server
   version: 1.0.0
 paths:
-  /api/v1/auth/change-password:
+  /api/v1/auth/health:
     post:
       consumes:
       - application/json
-      description: 修改当前用户的密码
-      parameters:
-      - description: 修改密码请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/model.ChangePasswordRequest'
+      description: 检查认证服务的健康状态
       produces:
       - application/json
       responses:
         "200":
-          description: 修改成功
+          description: 服务健康
           schema:
             $ref: '#/definitions/model.SuccessResponse'
-        "400":
-          description: 请求格式错误
-          schema:
-            $ref: '#/definitions/model.ErrorResponse'
-        "401":
-          description: 未认证或旧密码错误
-          schema:
-            $ref: '#/definitions/model.ErrorResponse'
-        "500":
-          description: 服务器内部错误
-          schema:
-            $ref: '#/definitions/model.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: 修改密码
+      summary: 认证服务健康检查
       tags:
-      - 认证
-  /api/v1/auth/login:
-    post:
-      consumes:
-      - application/json
-      description: 用户使用用户名和密码登录，返回 JWT 令牌
-      parameters:
-      - description: 登录请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/model.LoginRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 登录成功
-          schema:
-            $ref: '#/definitions/model.SuccessResponse'
-        "400":
-          description: 请求格式错误
-          schema:
-            $ref: '#/definitions/model.ErrorResponse'
-        "401":
-          description: 认证失败
-          schema:
-            $ref: '#/definitions/model.ErrorResponse'
-        "500":
-          description: 服务器内部错误
-          schema:
-            $ref: '#/definitions/model.ErrorResponse'
-      summary: 用户登录
-      tags:
-      - 认证
-  /api/v1/auth/logout:
-    post:
-      consumes:
-      - application/json
-      description: 用户登出（客户端删除令牌）
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 登出成功
-          schema:
-            $ref: '#/definitions/model.SuccessResponse'
-      security:
-      - BearerAuth: []
-      summary: 用户登出
-      tags:
-      - 认证
-  /api/v1/auth/profile:
-    get:
-      consumes:
-      - application/json
-      description: 获取当前登录用户的详细信息
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 获取成功
-          schema:
-            $ref: '#/definitions/model.SuccessResponse'
-        "401":
-          description: 未认证
-          schema:
-            $ref: '#/definitions/model.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: 获取当前用户信息
-      tags:
-      - 认证
-  /api/v1/auth/refresh:
-    post:
-      consumes:
-      - application/json
-      description: 使用当前令牌获取新的令牌
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 刷新成功
-          schema:
-            $ref: '#/definitions/model.SuccessResponse'
-        "401":
-          description: 令牌无效
-          schema:
-            $ref: '#/definitions/model.ErrorResponse'
-        "500":
-          description: 服务器内部错误
-          schema:
-            $ref: '#/definitions/model.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: 刷新 JWT 令牌
-      tags:
-      - 认证
-  /api/v1/auth/register:
-    post:
-      consumes:
-      - application/json
-      description: 注册新用户账户
-      parameters:
-      - description: 注册请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/model.UserCreateRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: 注册成功
-          schema:
-            $ref: '#/definitions/model.SuccessResponse'
-        "400":
-          description: 请求格式错误
-          schema:
-            $ref: '#/definitions/model.ErrorResponse'
-        "409":
-          description: 用户已存在
-          schema:
-            $ref: '#/definitions/model.ErrorResponse'
-        "500":
-          description: 服务器内部错误
-          schema:
-            $ref: '#/definitions/model.ErrorResponse'
-      summary: 用户注册
-      tags:
-      - 认证
+      - 系统
   /api/v1/resource:
     post:
       consumes:
       - application/json
-      description: 通过 action 字段分发不同的资源操作
+      description: 通过 action 字段分发不同的资源操作，只支持项目（item）相关操作
       parameters:
       - description: 资源操作请求
         in: body
@@ -310,18 +296,177 @@ paths:
           schema:
             $ref: '#/definitions/model.ErrorResponse'
       security:
-      - BearerAuth: []
+      - ApiKeyAuth: []
       summary: 统一资源操作
       tags:
       - 资源
+  /api/v1/sql:
+    post:
+      consumes:
+      - application/json
+      description: 支持原生 SQL 和结构化查询，包含分页和排序功能
+      parameters:
+      - description: SQL 查询请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.SQLRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 查询成功
+          schema:
+            $ref: '#/definitions/model.SQLResponse'
+        "400":
+          description: 请求格式错误
+          schema:
+            $ref: '#/definitions/model.SQLResponse'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/model.SQLResponse'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/model.SQLResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/model.SQLResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: 执行 SQL 查询
+      tags:
+      - SQL
+  /api/v1/sql/batch:
+    post:
+      consumes:
+      - application/json
+      description: 支持批量 SQL 操作，可选择事务模式
+      parameters:
+      - description: 批量 SQL 请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.BatchSQLRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 批量操作成功
+          schema:
+            $ref: '#/definitions/model.BatchSQLResponse'
+        "400":
+          description: 请求格式错误
+          schema:
+            $ref: '#/definitions/model.BatchSQLResponse'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/model.BatchSQLResponse'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/model.BatchSQLResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/model.BatchSQLResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: 执行批量 SQL 操作
+      tags:
+      - SQL
+  /api/v1/sql/batch-insert:
+    post:
+      consumes:
+      - application/json
+      description: 提供批量插入功能，支持冲突处理
+      parameters:
+      - description: 批量插入请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.BatchInsertRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 批量插入成功
+          schema:
+            $ref: '#/definitions/model.SQLResponse'
+        "400":
+          description: 请求格式错误
+          schema:
+            $ref: '#/definitions/model.SQLResponse'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/model.SQLResponse'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/model.SQLResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/model.SQLResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: 执行批量插入操作
+      tags:
+      - SQL
+  /api/v1/sql/insert:
+    post:
+      consumes:
+      - application/json
+      description: 提供简化的插入操作，支持冲突处理
+      parameters:
+      - description: 插入请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.InsertRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 插入成功
+          schema:
+            $ref: '#/definitions/model.SQLResponse'
+        "400":
+          description: 请求格式错误
+          schema:
+            $ref: '#/definitions/model.SQLResponse'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/model.SQLResponse'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/model.SQLResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/model.SQLResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: 执行便捷插入操作
+      tags:
+      - SQL
 schemes:
 - http
 - https
 securityDefinitions:
-  BearerAuth:
-    description: 'JWT Authorization header using the Bearer scheme. Example: ''Bearer
-      {token}'''
+  ApiKeyAuth:
+    description: 'API Key authentication. Example: ''your-api-key-here'''
     in: header
-    name: Authorization
+    name: X-API-Key
     type: apiKey
 swagger: "2.0"

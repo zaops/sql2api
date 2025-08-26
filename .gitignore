@@ -18,6 +18,7 @@
 go.work
 
 # IDE files
+.augment/
 .vscode/
 .idea/
 *.swp
