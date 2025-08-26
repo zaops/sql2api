@@ -715,8 +715,6 @@ var SwaggerInfo = &swag.Spec{
 	Description:      "SQL2API 是一个现代化的 RESTful API 服务，支持统一的 CRUD 操作、SQL 查询引擎、API Key 认证、IP 白名单等功能",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
-	LeftDelim:        "{{",
-	RightDelim:       "}}",
 }
 
 func init() {

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"sql2api/internal/config"
@@ -151,7 +150,7 @@ func (e *SQLEngine) ExecuteQuery(ctx context.Context, query string, params map[s
 	if err != nil {
 		mappedErr := e.errorMapper.MapError(err)
 		queryCtx.Finish(false, 0, 0, err)
-		return nil, fmt.Errorf("failed to execute query: %w", err)
+		return nil, fmt.Errorf("failed to execute query: %w", mappedErr)
 	}
 	defer rows.Close()
 
